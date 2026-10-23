@@ -49,10 +49,11 @@ Install the dependencies and run the project using the commands appropriate to i
 
 ```bash
 # Install dependencies
-# [package-manager] install
+1. $winget install ffmpeg | for windows,or $sudo apt install ffmpeg | for ubuntu
+2. pip install -r requirements.txt
 
 # Start the application
-# [run-command]
+$python app.py
 ```
 
 ## 🧭 Usage
