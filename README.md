@@ -63,8 +63,6 @@ $python app.py
 3. Run the application using the project-specific command.
 4. Follow the instructions for the relevant tool or workflow.
 
-**Tip:** Add screenshots or a short GIF here to show the app in action. A real preview helps visitors understand the project faster than a long description.
-
 <!-- Example:
 <div align="center">
   <img src="docs/screenshots/dashboard.png" alt="Media Tool preview" width="800">
