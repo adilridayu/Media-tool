@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Media Toolkit</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--line:#e2e5ea;--tx:#161a20;--mu:#667085;--ac:#16a34a;--er:#dc2626;color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--line:#262c36;--tx:#e8ecf2;--mu:#8b95a5;--ac:#4ade80;--er:#f87171}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,sans-serif;padding:28px 16px}
+.wrap{max-width:600px;margin:auto}h1{font-size:22px;margin:0}.s{color:var(--mu);margin:2px 0 18px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:var(--card);color:var(--mu);border-radius:10px;cursor:pointer;font:inherit}
+.tabs button.on{color:var(--tx);border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+label{display:block;color:var(--mu);font-size:13px;margin:12px 0 6px}label:first-child{margin-top:0}
+input,select{width:100%;padding:11px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--tx);font:inherit}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.go{margin-top:14px;width:100%;padding:12px;border:0;border-radius:10px;background:var(--ac);color:#fff;cursor:pointer;font:inherit;font-weight:600}
+.go:disabled{opacity:.5}.hide{display:none!important}
+.prev{display:none;gap:12px;margin-top:12px;align-items:center}.prev img{width:96px;border-radius:8px}.prev span{color:var(--mu);font-size:13px;display:block}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--mu);cursor:pointer}.drop.over{border-color:var(--ac)}
+#err{color:var(--er);font-size:14px;margin-top:10px;min-height:4px}
+h2{font-size:14px;color:var(--mu);margin:22px 0 8px;font-weight:600}
+.job{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.ti{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:9px 0 6px}.bar i{display:block;height:100%;background:var(--ac);transition:width .4s}
+.meta{display:flex;justify-content:space-between;color:var(--mu);font-size:12.5px}.meta.e{color:var(--er)}
+.mini{border:1px solid var(--line);background:none;color:var(--tx);border-radius:8px;padding:5px 11px;cursor:pointer;font:inherit;font-size:13px;white-space:nowrap}
+.mini.p{background:var(--ac);border-color:var(--ac);color:#fff}
+small{display:block;margin-top:20px;color:var(--mu);font-size:12px}
+</style></head><body><div class="wrap">
+<h1>Media Toolkit</h1><p class="s">Unduh video dari link &amp; ubah video ke MP3.</p>
+<div class="tabs"><button class="on" data-t="dl">Download dari Link</button><button data-t="cv">Video → MP3</button></div>
+
+<div class="card" id="dl">
+  <label>Link video</label><input id="url" placeholder="https://..." autocomplete="off">
+  <div class="prev" id="prev"><img id="th" alt=""><div><b id="ti"></b><span id="mt"></span></div></div>
+  <div class="row"><div><label>Format</label><select id="mode"><option value="mp4">Video (MP4)</option><option value="mp3">Audio (MP3)</option></select></div>
+  <div><label id="ql">Resolusi</label><select id="q"></select></div></div>
+  <button class="go" id="bd">Unduh</button>
+</div>
+
+<div class="card hide" id="cv">
+  <label>File video</label>
+  <div class="drop" id="drop">Klik atau seret file ke sini<br><span id="fn"></span></div>
+  <input type="file" id="file" accept="video/*,audio/*" class="hide">
+  <label>Bitrate MP3</label>
+  <select id="br"><option>128</option><option selected>192</option><option>256</option><option>320</option></select>
+  <button class="go" id="bc">Konversi ke MP3</button>
+</div>
+<div id="err"></div>
+
+<h2 id="jh" class="hide">Proses</h2><div id="jobs"></div>
+<small>Gunakan hanya untuk konten milikmu atau yang diizinkan pemiliknya, dan patuhi ketentuan layanan platform sumber. File dihapus otomatis dari server setelah ±30 menit.</small>
+</div>
+<script>
+const $=s=>document.querySelector(s),jobs=[],DONE=['done','error','cancelled'];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const err=t=>$('#err').textContent=t||'';
+const fb=n=>n>=1e6?(n/1e6).toFixed(1)+' MB':Math.round(n/1e3)+' KB';
+const ft=s=>s==null?'':Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  $('#dl').classList.toggle('hide',b.dataset.t!=='dl');$('#cv').classList.toggle('hide',b.dataset.t!=='cv');err()});
+function fillQ(){const m=$('#mode').value==='mp3';$('#ql').textContent=m?'Bitrate':'Resolusi';
+  $('#q').innerHTML=(m?[['192','192 kbps'],['128','128 kbps'],['320','320 kbps']]:[['best','Terbaik'],['1080','1080p'],['720','720p'],['480','480p'],['360','360p']])
+  .map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}
+$('#mode').onchange=fillQ;fillQ();
+
+// preview link
+let tm;$('#url').oninput=()=>{clearTimeout(tm);$('#prev').style.display='none';const u=$('#url').value.trim();
+  if(!/^https?:\/\//i.test(u))return;tm=setTimeout(async()=>{try{
+    const r=await fetch('/api/info',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});
+    const d=await r.json();if(!r.ok)return err(d.error);err();
+    $('#ti').textContent=d.title||'';$('#mt').textContent=[d.uploader,ft(d.duration)].filter(Boolean).join(' • ');
+    $('#th').src=d.thumbnail||'';$('#th').style.display=d.thumbnail?'':'none';$('#prev').style.display='flex'}catch(e){}},600)};
+
+// daftar job
+function card(j){
+  const e=j.status==='error',c=j.status==='cancelled',d=j.status==='done',act=!DONE.includes(j.status);
+  const meta=e?esc(j.error):c?'Dibatalkan':d?'Selesai · '+fb(j.size):
+    `${esc(j.stage)} · ${Math.round(j.progress)}%`+(j.speed?` · ${fb(j.speed)}/s`:'')+(j.eta!=null&&j.eta!==''?` · sisa ${ft(j.eta)}`:'');
+  return `<div class="job"><div class="top"><div class="ti">${esc(j.title||j.label||'Menyiapkan…')}</div>
+  ${d?`<a class="mini p" href="/api/jobs/${j.id}/file">Simpan</a>`:act?`<button class="mini" data-c="${j.key}">Batal</button>`:`<button class="mini" data-x="${j.key}">Tutup</button>`}</div>
+  ${e||c?'':`<div class="bar"><i style="width:${j.progress}%"></i></div>`}<div class="meta ${e?'e':''}"><span>${meta}</span></div></div>`}
+function render(){$('#jh').classList.toggle('hide',!jobs.length);$('#jobs').innerHTML=jobs.map(card).join('')}
+$('#jobs').onclick=async e=>{const c=e.target.dataset.c,x=e.target.dataset.x;
+  if(x){jobs.splice(jobs.findIndex(j=>j.key==x),1);render()}
+  if(c){const j=jobs.find(j=>j.key==c);if(j.xhr)j.xhr.abort();if(j.id)fetch(`/api/jobs/${j.id}/cancel`,{method:'POST'});
+    if(!j.id){j.status='cancelled';render()}}};
+function add(label,id){const j={key:Math.random().toString(36).slice(2),id,label,title:label,status:'queued',stage:'Dalam antrean',progress:0};jobs.unshift(j);render();return j}
+
+setInterval(async()=>{let ch=0;for(const j of jobs){if(!j.id||DONE.includes(j.status))continue;ch=1;
+  try{const r=await fetch('/api/jobs/'+j.id);
+    if(r.status===404){Object.assign(j,{status:'error',error:'Job kedaluwarsa.'})}
+    else{const d=await r.json();delete d.id;if(!d.title)delete d.title;Object.assign(j,d);
+      if(j.status==='done'&&!j.auto){j.auto=1;const a=document.createElement('a');a.href=`/api/jobs/${j.id}/file`;a.click()}}}catch(_){}}
+  if(ch)render()},800);
+
+// download dari link
+$('#bd').onclick=async()=>{err();const u=$('#url').value.trim();if(!u)return err('Masukkan link terlebih dahulu.');
+  const r=await fetch('/api/download',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({url:u,mode:$('#mode').value,quality:$('#q').value})});
+  const d=await r.json();if(!r.ok)return err(d.error);add($('#ti').textContent||u,d.id);$('#url').value='';$('#prev').style.display='none'};
+
+// upload + konversi
+const fi=$('#file');let picked;
+const pick=f=>{picked=f;$('#fn').textContent=f?f.name+' · '+fb(f.size):''};
+$('#drop').onclick=()=>fi.click();fi.onchange=()=>pick(fi.files[0]);
+$('#drop').ondragover=e=>{e.preventDefault();$('#drop').classList.add('over')};
+$('#drop').ondragleave=()=>$('#drop').classList.remove('over');
+$('#drop').ondrop=e=>{e.preventDefault();$('#drop').classList.remove('over');pick(e.dataTransfer.files[0])};
+$('#bc').onclick=()=>{err();if(!picked)return err('Pilih file video terlebih dahulu.');
+  const j=add(picked.name),fd=new FormData(),x=new XMLHttpRequest();fd.append('file',picked);fd.append('bitrate',$('#br').value);
+  j.status='uploading';j.stage='Mengunggah';j.xhr=x;
+  x.upload.onprogress=e=>{if(e.lengthComputable){j.progress=e.loaded/e.total*100;render()}};
+  x.onload=()=>{let d={};try{d=JSON.parse(x.responseText)}catch(_){}
+    if(x.status===200){j.id=d.id;j.progress=0;j.status='queued';j.stage='Dalam antrean';delete j.xhr}
+    else Object.assign(j,{status:'error',error:d.error||'Upload gagal.'});render()};
+  x.onerror=()=>{Object.assign(j,{status:'error',error:'Koneksi terputus.'});render()};
+  x.onabort=()=>{j.status='cancelled';render()};
+  x.open('POST','/api/convert');x.send(fd);pick(null);fi.value=''};
+</script></body></html>
